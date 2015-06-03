@@ -1,12 +1,7 @@
 ############################################################
 # This file contains all functions for two modes system
-#
-# First, please complete function velocity(), velocity_reduced(),
-# velocity_phase(), stabilityMatrix_reduced(), groupTransform()
-# and reduceSymmetry(), and set case = 1 to validate your code
-#
-# Next, complete case2, and case3.
 ############################################################
+
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -235,7 +230,7 @@ def plotFig(orbit):
 
 
 if __name__ == '__main__':
-    case = 3
+    case = 2
 
     if case == 1:
         """
@@ -300,87 +295,117 @@ if __name__ == '__main__':
         can use Newton method to refine these initial conditions. For HW5,
         you are only required to obtain the return map.
         """
-        # copy the relative equilibrium from case 2 here ([rx1, rx2, ry2])
+        # Relative equilibrium from case 2 [rx1, rx2, ry2]
         req = np.array([0.43996558, -0.38626706, 0.0702044])
-        # find the real part and imaginary part of the expanding eigenvector at req
-        # You should get: Vi = array([-0.        ,  0.58062392, -0.00172256])
+
+        # Find the real and imaginary parts of the expanding eigenvector at req
         stability_req = stabilityMatrix_reduced(req)
         w, v = np.linalg.eig(stability_req)
-        # print('numbers', w)
-        # print('vectors', v)
         Vr = np.array([e.real for e in v[:, 1]])
         Vi = np.array([e.imag for e in v[:, 1]])
+        assert(np.allclose(Vi, np.array([-0., 0.58062392, -0.00172256])))
 
-        # For simplicity, we choose to work in a new coordiates, whose origin
-        # is the relative equilibrium.
+        # For simplicity, let's work in new coordinates, with origin at req.
         # Construct an orthogonal basis from Vr, Vi and z-axis (\hat{y}_2 axis).
-        # Hint: numpy.qr()
-        # You should get
-        # Py = array([-0.12715969, -0.9918583 ,  0.00689345]) : normalized
-        # q, r = np.linalg.qr(np.vstack((Vr, Vi, np.array([0.1, 0.1, 0.1]))))
-        # print(q)
-        # print(r)
-        # Px = Vr / np.linalg.norm(Vr) # should be in the same direction of Vr
-        # Px = q[:, 0]
-        # Py = q[:, 1]
-        # print(Px, Py)
-        # Py =  # should be in the plan spanned by (Vr, Vi), and orthogonal to Px
-        # Pz =  # should be orthogonal to Px and Py
+        q, r = np.linalg.qr(np.column_stack((Vr, Vi, np.array([0, 0, 1]))))
 
-        # # produce an ergodic trajectory started from relative equilbirum
-        # x0_reduced = req + 0.0001*Vr
-        # dt = 0.005
-        # nstp = 800.0 / dt
-        # orbit = integrator_reduced(x0_reduced, dt, nstp);
-        # # project this orbit to the new basis [Px, Py, Pz],
-        # # also make the relative equilibrium be the origin.
-        # # To check your answer, you can set 'orbit = req' on purpose and see
-        # # whether orbit_prj is (0, 0, 0), also set 'oribt = Px + req' and see
-        # # whether orbit_prj is (1, 0, 0)
-        # orbit_prj =
-        #
-        # # Choose Poincare section be Px = 0 (y-z plane), find all the intersection
-        # # points by orbit_prj.
-        # # Note: choose the right direction of this Poincare section, otherwise,
-        # # you will get two branches of intersection points.
-        # # Hint: you can find adjacent points who are at the opposite region of this
-        # # poincare section and then use simple linear interpolation to get the
-        # # intersection point.
-        #
-        # PoincarePoints = # the set of recored Poincare intersection points
-        # Pnum =  # number of intersection points
-        # distance = # the Euclidean distance of intersection points to the orgin
-        #            # Please distinguish Euclidean distance with the arch length that follows.
-        #            # Euclidean distance of a Poincare intersection point P_i = (0, yi, zi)
-        #            # (the x coordinate is zero since section is chosen as Px = 0)
-        #            # is just \sqrt{yi^2 + zi^2}
-        #
-        #
-        #
-        #
-        # # Now reorder the distance from small to large. Also keep note which distance correspond
-        # # to which intersection point. Let us calculate the curvilinear length (arch length) along the
-        # # intersection curve.
-        # # Suppose the Euclidean distance is [d1, d2,..., dm] (sorted from small to large),
-        # # the corresponding intersection points are
-        # # [p_{k_1}, p_{k_2}, ..., p_{k_m}], then the arch length of p_{k_i} from relative equilibrium is
-        # # r_{k_i} = \sum_{j = 1}^{j = i} \sqrt( (p_{k_j} - p_{k_{j-1}})^2 )
-        # # here p_{k_0} refers to the relative equilibrium itself, which is the origin.
-        # # Example: r_{k_2} = |p_{k_2} - p_{k_1}| + |p_{k_1} - p_{k_0}|
-        # # Basically, we are summing the length segment by segment.
-        # # In this way, we have the arch length of each Poincare intersection point. The return map
-        # # r_n -> r_{n+1} indicates how intersection points stretch and fold on the Poincare section.
-        #
-        # length = # arch length
-        #
-        # # plot the return map with diffrent order. Try to locate the fixed
-        # # points in each of these return map. Each of them corresponds to
-        # # the initial condtion of a periodic orbit. Use the same skill in HW3 to
-        # # get the inital conditions for these fixed points, and have a look at the
-        # # structure of the corresponding periodic orbits. This model may be analized
-        # # further when we try to understand symbolic dynamics in future.
-        # # Have fun !
-        #
+        Px = q[:, 0]  # in the direction of Vr
+        Py = q[:, 1]  # in the plan spanned by (Vr, Vi), and orthogonal to Px
+        Pz = q[:, 2]  # orthogonal to Px and Py
+        assert(np.allclose(Py, np.array([-0.12715969, -0.9918583, 0.00689345])))
+
+        # Produce an ergodic trajectory started from relative equilbirum
+        x0_reduced = req + 0.0001*Vr
+        dt = 0.005
+        nstp = 800.0 / dt
+        tArray = np.linspace(0, 800, nstp)
+        orbit = integrator_reduced(x0_reduced, dt, nstp)
+
+        # Project orbit to the new basis [Px, Py, Pz], with req being origin
+        def projection(point, basis, origin=np.array([0, 0, 0])):
+            return np.dot(basis, np.transpose(point - origin))
+
+        basis_eigen = np.array([Px, Py, Pz])
+        assert(np.allclose(projection(req, basis_eigen, req), [0, 0, 0]))
+        assert(np.allclose(projection(Px + req, basis_eigen, req), [1, 0, 0]))
+
+        orbit_prj = projection(orbit, basis_eigen)
+
+        # Choose Poincare section be Px = 0 (y-z plane), find all the
+        # intersection points by orbit_prj.
+        # Note: choose the right direction of this Poincare section, otherwise,
+        # you will get two branches of intersection points.
+        # Hint: you can find adjacent points who are at the opposite region of
+        # this poincare section and then use simple linear interpolation to
+        # get the intersection point.
+
+        basis_poincare = [np.zeros(Px.shape), Py, Pz]
+
+        traj = odeint(velocity_reduced, x0_reduced, tArray)
+        traj_prj = [projection(e, basis_eigen, req) for e in traj]
+
+        PoincarePoints = np.array([], float)
+        for i in range(len(traj_prj) - 1):
+            if traj_prj[i][0] < 0 <= traj_prj[i+1][0]:
+                pt_prev = traj_prj[i]
+                pt_next = traj_prj[i+1]
+                pt_interp = (pt_next - pt_prev) / 2
+                PoincarePoints = np.append(PoincarePoints, pt_interp)
+
+        PoincarePoints = PoincarePoints.reshape(np.size(PoincarePoints, 0)/3, 3)
+        PoincarePoints = np.array([projection(e, basis_poincare)
+                                   for e in PoincarePoints])
+
+        # The Euclidean distance of intersection points to the origin.
+        distance = [np.linalg.norm(e) for e in PoincarePoints]
+
+        # Now reorder the distance from small to large. Also keep note which
+        # distance correspond to which intersection point.
+        order = np.argsort(distance)
+
+        # Suppose the Euclidean distance is [d1, d2,..., dm]
+        # (sorted from small to large), the corresponding intersection points
+        # are [p_{k_1}, p_{k_2}, ..., p_{k_m}], then the arch length of
+        # p_{k_i} from relative equilibrium is
+        # r_{k_i} = \sum_{j = 1}^{j = i} \sqrt( (p_{k_j} - p_{k_{j-1}})^2 )
+        # here p_{k_0} refers to the relative eq. itself, which is the origin.
+        # Example: r_{k_2} = |p_{k_2} - p_{k_1}| + |p_{k_1} - p_{k_0}|
+        # In this way, we have the arch length of each Poincare intersection
+        # point. The return map r_n -> r_{n+1} indicates how intersection
+        # points stretch and fold on the Poincare section.
+        PoincarePoints = [PoincarePoints[i] for i in order]
+
+        length = np.zeros((len(PoincarePoints)+1, 1))
+        length[0] = 0
+        PoincarePoints[0:0] = [0]
+
+        for n in range(1, len(length)):
+            dist = np.linalg.norm(np.array(PoincarePoints[n]) -
+                                  np.array(PoincarePoints[n-1]))
+            length[n] = length[n-1] + dist
+        length = length[1:]
+
+        rev_order = np.argsort(order)
+        length = [length[i] for i in rev_order]
+
+        # Plot the return map with different order. Try to locate the fixed
+        # points in each of these return map. Each of them corresponds to
+        # the initial condition of a periodic orbit. Use the same skill in
+        # HW3 to get the initial conditions for these fixed points, and have a
+        # look at the structure of the corresponding periodic orbits.
+
+        plt.figure()
+        plt.plot(length, length, linestyle='-', color='red')
+        plt.plot(length[:-1], length[1:], linestyle='none', marker='.')
+
+        plt.figure()
+        plt.plot(length, length, linestyle='-', color='red')
+        plt.plot(length[:-2], length[2:], linestyle='none', marker='.')
+
+        plt.figure()
+        plt.plot(length, length, linestyle='-', color='red')
+        plt.plot(length[:-4], length[4:], linestyle='none', marker='.')
+        plt.show()
         # # plot r_n -> r_{n+1} # 1st order
         # # plot r_n -> r_{n+2} # 2nd order
         # # plot r_n -> r_{n+3} # 3nd order
