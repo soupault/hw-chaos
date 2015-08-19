@@ -230,7 +230,7 @@ def plotFig(orbit):
 
 
 if __name__ == '__main__':
-    case = 2
+    case = 3
 
     if case == 1:
         """
@@ -279,6 +279,7 @@ if __name__ == '__main__':
         plt.show()
 
     elif case == 3:
+        # XXX: rework! incorrect
         """
         return map in the Poincare section. This case is similar to hw3.
 
