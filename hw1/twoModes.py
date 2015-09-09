@@ -1,6 +1,3 @@
-############################################################
-# This file contains all functions for two modes system
-############################################################
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,61 +21,57 @@ template_point = np.array([1, 0, 0, 0])
 group_tangent = np.dot(group_generator, template_point)
 
 
-def velocity(stateVec, t):      
+def vel_ss_full(state_full, t):
     """
-    velocity in the full state space.
+    Velocity in the full state space.
     
-    stateVec: state vector [x1, y1, x2, y2]
+    sv: state vector [x1, y1, x2, y2]
     t: just for convention of odeint, not used.
-    return: velocity at stateVec. Dimension [1 x 4]
+    return: velocity at state_full. Dimension [1 x 4]
     """
-    x1 = stateVec[0]
-    y1 = stateVec[1]
-    x2 = stateVec[2]
-    y2 = stateVec[3]
+    x1, y1, x2, y2 = state_full
     r2 = x1**2 + y1**2
     
-    velo = np.array([(G_mu1 - r2) * x1 + G_c1 * (x1 * x2 + y1 * y2),
-                     (G_mu1 - r2) * y1 + G_c1 * (x1 * y2 - x2 * y1),
-                     x2 + y2 + x1 ** 2 - y1 ** 2 + G_a2 * x2 * r2,
-                     -x2 + y2 + 2 * x1 * y1 + G_a2 * y2 * r2])
-    return velo
+    result = np.array([(G_mu1 - r2) * x1 + G_c1 * (x1 * x2 + y1 * y2),
+                       (G_mu1 - r2) * y1 + G_c1 * (x1 * y2 - x2 * y1),
+                       x2 + y2 + x1 ** 2 - y1 ** 2 + G_a2 * x2 * r2,
+                       -x2 + y2 + 2 * x1 * y1 + G_a2 * y2 * r2])
+    return result
 
 
-def velocity_reduced(state_reduced, t):
+def vel_ss_reduced(state_reduced, t):
     """
-    velocity in the slice after reducing the continous symmetry
+    Velocity in the slice after reducing the continuous symmetry
 
     state_reduced: state vector in slice [\hat{x}_1, \hat{x}_2, \hat{y}_2]
     t: not used
-    return: velocity at stateVect_reduced. dimension [1 x 3]
+    return: velocity at state_reduced. dimension [1 x 3]
     """
-    state_red_full = (state_reduced[0], 0, state_reduced[1],
-                     state_reduced[2])
-    velocity_at_state = velocity(state_red_full, 1)
-    tangent_at_state = np.dot(group_generator, state_red_full)
+    state_red = (state_reduced[0], 0, state_reduced[1],
+                 state_reduced[2])
+    velocity_at_state = vel_ss_full(state_red, 1)
+    tangent_at_state = np.dot(group_generator, state_red)
 
-    velo = velocity_at_state - np.inner(velocity_phase(state_reduced),
-                                        tangent_at_state)
-    velo = np.array([velo[0], velo[2], velo[3]])
-    return velo
+    velocity = velocity_at_state - np.inner(vel_phase(state_reduced),
+                                            tangent_at_state)
+    result = np.array([velocity[0], velocity[2], velocity[3]]) 
+    return result
 
 
-def velocity_phase(state_reduced):
+def vel_phase(state_reduced):
     """
     phase velocity. 
 
-    stateVec_reduced: state vector in slice [\hat{x}_1, \hat{x}_2, \hat{y}_2]
+    state_reduced: state vector in slice [\hat{x}_1, \hat{x}_2, \hat{y}_2]
     Note: phase velocity only depends on the state vector
     """
     state_red_full = (state_reduced[0], 0, state_reduced[1], state_reduced[2])
-    velocity_at_state = velocity(state_red_full, 1)
+    velocity_at_state = vel_ss_full(state_red_full, 1)
     tangent_at_state = np.dot(group_generator, state_red_full)
 
-    velo_phase = np.dot(velocity_at_state.T, group_tangent) /\
-                 np.inner(tangent_at_state.T, group_tangent)
-
-    return velo_phase
+    result = np.dot(velocity_at_state.T, group_tangent) /\
+             np.inner(tangent_at_state.T, group_tangent)
+    return result
 
 
 def integrator(init_state, dt, nstp):
@@ -89,7 +82,7 @@ def integrator(init_state, dt, nstp):
     dt: time step 
     nstp: number of time step
     """
-    states = odeint(velocity, init_state, np.arange(0, dt*nstp, dt))
+    states = odeint(vel_ss_full, init_state, np.arange(0, dt*nstp, dt))
     return states
 
 
@@ -101,31 +94,28 @@ def integrator_reduced(init_state, dt, nstp):
     dt: time step 
     nstp: number of time step
     """
-    states = odeint(velocity_reduced, init_state, np.arange(0, dt*nstp, dt))
+    states = odeint(vel_ss_reduced, init_state, np.arange(0, dt*nstp, dt))
     return states
 
 
-def stabilityMatrix(state):
+def stability_matrix(state_full):
     """
-    calculate the stability matrix in the full state space
+    Calculate the stability matrix in the full state space
 
-    state: state vector in slice [\hat{x}_1, \hat{x}_2, \hat{y}_2]
+    state: state vector in slice [{x}_1, {x}_2, {y}_1, {y}_2]
     return: stability matrix. Dimension [3 x 3]
     """
-    x1, y1, x2, y2 = state
+    x1, y1, x2, y2 = state_full
 
-    stab = np.array([[G_mu1-3*x1**2+G_c1*x2-y1**2, G_c1*y2-2*x1*y1,
-                      G_c1*x1, G_c1*y1],
-                     [G_c1*y2-2*x1*y1, G_mu1-x1**2-G_c1*x1-3*y1**2,
-                      -G_c1*y1, G_c1*x1],
-                     [2*x1+2*G_a2*x1*x2, 2*G_a2*x2*y1-2*y1,
-                      1+G_a2*(x1**2+y1**2), 1],
-                     [2*y1+2*G_a2*x1*y2, 2*x1+2*G_a2*y1*y2,
-                      -1, 1+G_a2*(x1**2+y1**2)]])
-    return stab
+    result = np.array(
+        [[G_mu1-3*x1**2+G_c1*x2-y1**2, G_c1*y2-2*x1*y1, G_c1*x1, G_c1*y1],
+         [G_c1*y2-2*x1*y1, G_mu1-x1**2-G_c1*x1-3*y1**2, -G_c1*y1, G_c1*x1],
+         [2*x1+2*G_a2*x1*x2, 2*G_a2*x2*y1-2*y1, 1+G_a2*(x1**2+y1**2), 1],
+         [2*y1+2*G_a2*x1*y2, 2*x1+2*G_a2*y1*y2, -1, 1+G_a2*(x1**2+y1**2)]])
+    return result
 
 
-def stabilityMatrix_reduced(state_reduced):
+def stability_matrix_reduced(state_reduced):
     """
     calculate the stability matrix on the slice
 
@@ -138,12 +128,12 @@ def stabilityMatrix_reduced(state_reduced):
     y2 = state_reduced[2]
     state_ext = (x1, y1, x2, y2)
 
-    stab_full = stabilityMatrix(state_ext)
+    stab_full = stability_matrix(state_ext)
     tangent_at_state = np.dot(group_generator, state_ext)
 
     sqr_braket = np.dot(np.inner(tangent_at_state, group_tangent),
                         stab_full.T) - \
-                 np.dot(np.inner(velocity(state_ext, 0), group_tangent),
+                 np.dot(np.inner(vel_ss_full(state_ext, 0), group_tangent),
                         group_generator.T)
 
     stab = np.zeros_like(stab_full)
@@ -153,16 +143,15 @@ def stabilityMatrix_reduced(state_reduced):
                          np.dot(tangent_at_state[i],
                                 np.dot(sqr_braket, group_tangent)[j]) / \
                          np.inner(tangent_at_state, group_tangent) ** 2 - \
-                         np.inner(velocity(state_ext, 0), group_tangent) / \
+                         np.inner(vel_ss_full(state_ext, 0), group_tangent) / \
                          np.inner(tangent_at_state, group_tangent) * \
                          group_generator[i, j]
-
     stab = np.delete(stab, 1, axis=0)
     stab = np.delete(stab, 1, axis=1)
     return stab
 
 
-def groupTransform(state, phi):
+def group_transform(state_full, phi):
     """
     perform group transform on a particular state. Symmetry group is 'g(phi)'
     and state is 'x'. the transformed state is ' xp = g(phi) * x '
@@ -177,11 +166,11 @@ def groupTransform(state, phi):
         [0, 0, np.cos(2*phi), -np.sin(2*phi)],
         [0, 0, np.sin(2*phi), np.cos(2*phi)]
     ])
-    state_transformed = np.transpose(np.dot(g, np.transpose(state)))
+    state_transformed = np.transpose(np.dot(g, np.transpose(state_full)))
     return state_transformed
 
 
-def reduceSymmetry(states):
+def reduce_symmetry(states):
     """
     tranform states in the full state space into the slice.
     Hint: use numpy.arctan2(y,x)
@@ -191,13 +180,13 @@ def reduceSymmetry(states):
     states: states in the full state space. dimension [m x 4] 
     return: the corresponding states on the slice dimension [m x 3]
     """
-    if states.ndim == 1: # if the state is one point
+    if states.ndim == 1:  # if the state is one point
         x1, y1 = states[:2]
         if x1 == 0:
             phi = np.arccos(0)
         else:
             phi = np.arctan2(-y1, x1)
-        x1s, _, x2s, y2s = groupTransform(states, phi)
+        x1s, _, x2s, y2s = group_transform(states, phi)
         reduced_states = (x1s, x2s, y2s)
 
     elif states.ndim == 2: # if they are a sequence of state points
@@ -209,7 +198,7 @@ def reduceSymmetry(states):
                 phi = np.arccos(0)
             else:
                 phi = np.arctan2(-y1, x1)
-            x1s, _, x2s, y2s = groupTransform(states[i, :], phi)
+            x1s, _, x2s, y2s = group_transform(states[i, :], phi)
             reduced_states[i, 0] = x1s
             reduced_states[i, 1] = x2s
             reduced_states[i, 2] = y2s
@@ -220,8 +209,8 @@ def reduceSymmetry(states):
     return reduced_states
 
 
-def plotFig(orbit):
-    fig = plt.figure(figsize=(8,6))
+def plot_figure(orbit):
+    fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection='3d')
     ax.plot(orbit[:, 0], orbit[:, 1], orbit[:, 2])
     ax.set_xlabel("X Axis")
@@ -240,56 +229,55 @@ if __name__ == '__main__':
         The first method is post-processing. The second method utilizes
         the dynamics in the slice directly.
         """
-        x0 = 0.1 * rand(4)  # random inital state
-        x0_reduced = reduceSymmetry(x0)  # initial state transformed into slice
+        x0 = 0.1 * rand(4)  # random initial state
+        x0_reduced = reduce_symmetry(x0)  # initial state transformed into slice
         dt = 0.005
         nstp = 500.0 / dt
         # trajectory in the full state space
         orbit = integrator(x0, dt, nstp)
-        # trajectory in the slice by reducing the symmety
-        reduced_orbit = reduceSymmetry(orbit)
+        # trajectory in the slice by reducing the symmetry
+        reduced_orbit = reduce_symmetry(orbit)
         # trajectory in the slice by integration in slice
         reduced_orbit2 = integrator_reduced(x0_reduced, dt, nstp)
         
-        plotFig(orbit[:, 0:3])
-        plotFig(reduced_orbit[:, 0:3])
-        plotFig(reduced_orbit2[:, 0:3])
+        plot_figure(orbit[:, 0:3])
+        plot_figure(reduced_orbit[:, 0:3])
+        plot_figure(reduced_orbit2[:, 0:3])
         plt.show()
 
-        print(stabilityMatrix_reduced(np.array([0.1, 0.2, 0.3])))
+        print(stability_matrix_reduced(np.array([0.1, 0.2, 0.3])))
 
     elif case == 2:
         """
-        Try reasonable guess to find relative equilibria.
+        Try reasonable guess to find relative equilibrium.
         One possible way: numpy.fsolve
         """
         guess = np.array([0.5, -0.5, 0.1])  # a relative good guess
 
-        req = fsolve(velocity_reduced, guess, args=0)
+        req = fsolve(vel_ss_reduced, guess, args=0)
         print('Relative equilibrium: ', req)
-        print('Phase velocity at equilibrium: ', velocity_phase(req))
+        print('Phase velocity at equilibrium: ', vel_phase(req))
 
         # see how relative equilibrium drifts in the full state space
         req_full = np.array([req[0], 0, req[1], req[2]])
         dt = 0.005
-        T = np.abs(2 * np.pi / velocity_phase(req))
+        T = np.abs(2 * np.pi / vel_phase(req))
         nstp = np.round(T / dt)
         orbit = integrator(req_full, dt, nstp)
-        plotFig(orbit[:, 0:3])
+        plot_figure(orbit[:, 0:3])
         plt.show()
 
     elif case == 3:
-        # XXX: rework! incorrect
         """
         return map in the Poincare section. This case is similar to hw3.
 
         We start with the relative equilibrium, and construct a Poincare
         section by its real and imaginary part of its expanding
-        eigenvector (real part and z-axis is in the Poincare section).
+        eigen-vector (real part and z-axis is in the Poincare section).
 
         Then we record the Poincare intersection points by an ergodic
         trajectory. Sort them by their distance to the relative equilibrium,
-        and calculate the arc length r_n from the reltative equilibrium to
+        and calculate the arc length r_n from the relative equilibrium to
         each of them. After that we construct map r_n -> r_{n+1},
         r_n -> r_{n+2}, r_n -> r_{n+3}, etc. The fixed points of these map
         give us good initial guesses for periodic orbits. If you like, you
@@ -299,8 +287,8 @@ if __name__ == '__main__':
         # Relative equilibrium from case 2 [rx1, rx2, ry2]
         req = np.array([0.43996558, -0.38626706, 0.0702044])
 
-        # Find the real and imaginary parts of the expanding eigenvector at req
-        stability_req = stabilityMatrix_reduced(req)
+        # Find the real and imaginary parts of the expanding eigen-vector at req
+        stability_req = stability_matrix_reduced(req)
         w, v = np.linalg.eig(stability_req)
         Vr = np.array([e.real for e in v[:, 1]])
         Vi = np.array([e.imag for e in v[:, 1]])
@@ -315,22 +303,25 @@ if __name__ == '__main__':
         Pz = q[:, 2]  # orthogonal to Px and Py
         assert(np.allclose(Py, np.array([-0.12715969, -0.9918583, 0.00689345])))
 
-        # Produce an ergodic trajectory started from relative equilbirum
-        x0_reduced = req + 0.0001*Vr
+        # Produce an ergodic trajectory started from relative equilibrium
+        # x0_reduced = req + 0.0001*Vr
+        x0_reduced = req + 0.0001*Px
         dt = 0.005
-        nstp = 800.0 / dt
-        tArray = np.linspace(0, 800, nstp)
+        nstp = int(800.0 / dt)
+        time_array = np.linspace(0, dt * nstp, nstp)
+
         orbit = integrator_reduced(x0_reduced, dt, nstp)
 
         # Project orbit to the new basis [Px, Py, Pz], with req being origin
-        def projection(point, basis, origin=np.array([0, 0, 0])):
-            return np.dot(basis, np.transpose(point - origin))
+        def projection(vec, basis, origin):
+            offsets = np.tile(origin, (vec.shape[0], 1))
+            return np.dot(vec - offsets, basis)
 
-        basis_eigen = np.array([Px, Py, Pz])
+        basis_eigen = np.array([Px, Py, Pz]).T
+        orbit_proj = projection(orbit, basis_eigen, req)
+
         assert(np.allclose(projection(req, basis_eigen, req), [0, 0, 0]))
         assert(np.allclose(projection(Px + req, basis_eigen, req), [1, 0, 0]))
-
-        orbit_prj = projection(orbit, basis_eigen)
 
         # Choose Poincare section be Px = 0 (y-z plane), find all the
         # intersection points by orbit_prj.
@@ -340,22 +331,16 @@ if __name__ == '__main__':
         # this poincare section and then use simple linear interpolation to
         # get the intersection point.
 
-        basis_poincare = [np.zeros(Px.shape), Py, Pz]
+        PoincarePoints = np.array([], dtype=np.float)
+        for i in range(len(orbit_proj) - 1):
+            if orbit_proj[i][0] > 0 >= orbit_proj[i+1][0]:
+                pt_interp = (orbit_proj[i] - orbit_proj[i+1]) / 2 + \
+                            orbit_proj[i+1]
+                PoincarePoints = np.append(PoincarePoints, [pt_interp])
 
-        traj = odeint(velocity_reduced, x0_reduced, tArray)
-        traj_prj = [projection(e, basis_eigen, req) for e in traj]
-
-        PoincarePoints = np.array([], float)
-        for i in range(len(traj_prj) - 1):
-            if traj_prj[i][0] < 0 <= traj_prj[i+1][0]:
-                pt_prev = traj_prj[i]
-                pt_next = traj_prj[i+1]
-                pt_interp = (pt_next - pt_prev) / 2
-                PoincarePoints = np.append(PoincarePoints, pt_interp)
-
-        PoincarePoints = PoincarePoints.reshape(np.size(PoincarePoints, 0)/3, 3)
-        PoincarePoints = np.array([projection(e, basis_poincare)
-                                   for e in PoincarePoints])
+        PoincarePoints = np.reshape(PoincarePoints, (-1, 3))
+        # basis_poincare = np.array([np.zeros(Px.shape), Py, Pz]).T
+        # PoincarePoints = projection(PoincarePoints, basis_poincare, [0, 0, 0])
 
         # The Euclidean distance of intersection points to the origin.
         distance = [np.linalg.norm(e) for e in PoincarePoints]
@@ -374,11 +359,11 @@ if __name__ == '__main__':
         # In this way, we have the arch length of each Poincare intersection
         # point. The return map r_n -> r_{n+1} indicates how intersection
         # points stretch and fold on the Poincare section.
-        PoincarePoints = [PoincarePoints[i] for i in order]
 
-        length = np.zeros((len(PoincarePoints)+1, 1))
-        length[0] = 0
-        PoincarePoints[0:0] = [0]
+        PoincarePoints = PoincarePoints[order]
+
+        PoincarePoints = np.vstack((np.zeros((1, 3)), PoincarePoints))
+        length = np.zeros((PoincarePoints.shape[0], 1))
 
         for n in range(1, len(length)):
             dist = np.linalg.norm(np.array(PoincarePoints[n]) -
@@ -387,7 +372,7 @@ if __name__ == '__main__':
         length = length[1:]
 
         rev_order = np.argsort(order)
-        length = [length[i] for i in rev_order]
+        length = length[rev_order]
 
         # Plot the return map with different order. Try to locate the fixed
         # points in each of these return map. Each of them corresponds to
@@ -407,7 +392,3 @@ if __name__ == '__main__':
         plt.plot(length, length, linestyle='-', color='red')
         plt.plot(length[:-4], length[4:], linestyle='none', marker='.')
         plt.show()
-        # # plot r_n -> r_{n+1} # 1st order
-        # # plot r_n -> r_{n+2} # 2nd order
-        # # plot r_n -> r_{n+3} # 3nd order
-        # # plot r_n -> r_{n+4} # 4th order

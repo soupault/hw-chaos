@@ -114,6 +114,7 @@ Distance = squareform(pdist(PoincareSection))
 # increasing distances
 SortedPoincareSection = PoincareSection.copy()  # Copy PoincareSection into
                                                 # a new variable
+
 # Create a zero-array to assign arclengths of the Poincare section points
 # after sorting
 ArcLengths = np.zeros(np.size(SortedPoincareSection, 0))
@@ -123,32 +124,20 @@ sn = np.zeros(np.size(PoincareSection, 0))
 for k in range(np.size(SortedPoincareSection, 0) - 1):
     # Find the element which is closest to the kth point
     m = np.argmin(Distance[k, k + 1:]) + k + 1
-    # Hold the (k+1)th row in the dummy vector
-    dummyPoincare = SortedPoincareSection[k + 1, :].copy()
     # Replace (k+1)th row with the closest point
-    SortedPoincareSection[k + 1, :] = SortedPoincareSection[m, :]
-    # Assign the previous (k+1)th row to the mth row
-    SortedPoincareSection[m, :] = dummyPoincare
+    SortedPoincareSection[[k + 1, m], :] = SortedPoincareSection[[m, k + 1], :]
 
     # Rearrange the distance matrix according to the new form of the
     # SortedPoincareSection array
-    dummyColumn = Distance[:, k + 1].copy()  # Hold (k+1)th column of the
-                                             # distance matrix in a dummy
-                                             # array
-    Distance[:, k + 1] = Distance[:, m]  # Assign mth column to kth
-    Distance[:, m] = dummyColumn
+    Distance[:, [k + 1, m]] = Distance[:, [m, k + 1]]
+    Distance[[k + 1, m], :] = Distance[[m, k + 1], :]
 
-    dummyRow = Distance[k + 1, :].copy()  # Hold (k+1)th row in a dummy
-                                          # array
-    Distance[k + 1, :] = Distance[m, :]
-    Distance[m, :] = dummyRow
-
-    # Assign the arclength of (k+1)th element
+    # Assign the arc-length of (k+1)th element
     ArcLengths[k + 1] = ArcLengths[k] + Distance[k, k + 1]
     # Find this point in the PoincareSection array and assign sn to its
-    # corresponding arclength
-    sn[np.argwhere(PoincareSection[:, 0]
-                   == SortedPoincareSection[k + 1, 0])] = ArcLengths[k + 1]
+    # corresponding arc-length
+    sn[np.argwhere(PoincareSection[:, 0] ==
+                   SortedPoincareSection[k + 1, 0])] = ArcLengths[k + 1]
 
 # We are now going to make a parametric spline interpolation to this curve.
 # First we import the scipy.interpolate module, see its documentation at:
@@ -269,7 +258,7 @@ while np.max(np.abs(error)) > tol:
     Newton[0:3, 3] = - Rossler.Velocity(sspfixed, period)
     ### None  # COMPLETE THIS LINE
     # Fourth row is the Poincare section constraint:
-    Newton[3, 0:3] = nTemplate;
+    Newton[3, 0:3] = nTemplate
     ### None  # COMPLETE THIS LINE
     # Now we will invert this matrix and act on the error vector to find the
     # updates to our guesses:
